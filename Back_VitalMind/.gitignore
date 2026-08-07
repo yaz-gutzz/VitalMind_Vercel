@@ -1,5 +1,25 @@
-node_modules
+# Dependencias
+node_modules/
+
+# Variables de entorno
 .env
 .env.*
-logs
+
+# Logs
+logs/
 *.log
+
+# Archivos temporales
+tmp/
+temp/
+
+# Cobertura de pruebas
+coverage/
+
+# Build
+dist/
+
+# Archivos del sistema
+.vscode/
+.DS_Store
+Thumbs.db
