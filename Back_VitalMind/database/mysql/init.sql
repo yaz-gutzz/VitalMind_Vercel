@@ -1,0 +1,109 @@
+CREATE DATABASE IF NOT EXISTS vitalmind;
+USE vitalmind;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  full_name VARCHAR(120) NOT NULL,
+  email VARCHAR(160) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  age INT NOT NULL DEFAULT 0,
+  joined_label VARCHAR(40) NULL,
+  last_active_label VARCHAR(40) NULL,
+  status ENUM('active','inactive','pending') NOT NULL DEFAULT 'pending',
+  registros INT NOT NULL DEFAULT 0,
+  consultas INT NOT NULL DEFAULT 0,
+  color VARCHAR(20) NOT NULL DEFAULT '#0F766E',
+  role ENUM('admin','patient','caregiver') NOT NULL DEFAULT 'patient',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+ALTER TABLE users
+  ADD COLUMN blood_type VARCHAR(5) NULL,
+  ADD COLUMN phone VARCHAR(30) NULL,
+  ADD COLUMN weight_kg DECIMAL(5,1) NULL,
+  ADD COLUMN height_cm DECIMAL(5,1) NULL;
+
+CREATE TABLE IF NOT EXISTS habit_logs (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  habit_key ENUM('water','exercise','sleep','nutrition','meditation') NOT NULL,
+  log_date DATE NOT NULL,
+  value DECIMAL(6,2) NOT NULL DEFAULT 0,
+  goal DECIMAL(6,2) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_habit_user_date (user_id, habit_key, log_date),
+  CONSTRAINT fk_habit_logs_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS health_metrics (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  metric_date DATE NOT NULL,
+  water_l DECIMAL(4,2) NULL,
+  steps INT NULL,
+  sleep_hours DECIMAL(4,2) NULL,
+  weight_kg DECIMAL(5,2) NULL,
+  wellness_score INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_metric_user_date (user_id, metric_date),
+  CONSTRAINT fk_health_metrics_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS medications (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NULL,
+  name VARCHAR(120) NOT NULL,
+  dose VARCHAR(80) NOT NULL,
+  frequency VARCHAR(80) NOT NULL,
+  time_label VARCHAR(80) NOT NULL,
+  color VARCHAR(20) NOT NULL DEFAULT '#0F766E',
+  taken TINYINT(1) NOT NULL DEFAULT 0,
+  type ENUM('pastilla','capsula','jarabe','inyeccion') NOT NULL DEFAULT 'pastilla',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_medications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS appointments (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NULL,
+  specialty VARCHAR(120) NOT NULL,
+  doctor VARCHAR(120) NOT NULL,
+  appointment_date DATE NOT NULL,
+  appointment_time VARCHAR(10) NOT NULL,
+  place VARCHAR(160) NOT NULL,
+  color VARCHAR(20) NOT NULL DEFAULT '#0F766E',
+  status ENUM('proxima','completada','cancelada') NOT NULL DEFAULT 'proxima',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_appointments_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS medical_history_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NULL,
+  category ENUM('diseases','allergies','medications','surgeries','consultations','vaccines','results') NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_medical_history_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id BIGINT UNSIGNED NOT NULL,
+  token_hash VARCHAR(255) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  CONSTRAINT fk_refresh_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
