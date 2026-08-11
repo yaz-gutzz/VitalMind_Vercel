@@ -1,0 +1,38 @@
+[
+  {
+    "model": "dummy_regressor",
+    "records": 731,
+    "mae": 16.165092873569474,
+    "mse": 348.42869654850807,
+    "rmse": 18.6662448432594,
+    "r2": -0.0011190849395896763,
+    "mean_residual": -0.6240876857771555,
+    "residual_standard_deviation": 18.65580904461046,
+    "minimum_prediction": 62.04633118782914,
+    "maximum_prediction": 62.04633118782914
+  },
+  {
+    "model": "ridge_regression",
+    "records": 731,
+    "mae": 2.887829743527859,
+    "mse": 12.383343930992861,
+    "rmse": 3.518997574735291,
+    "r2": 0.9644196873923045,
+    "mean_residual": -0.02818032277334339,
+    "residual_standard_deviation": 3.5188847381523103,
+    "minimum_prediction": 24.250988763414966,
+    "maximum_prediction": 102.51149024813884
+  },
+  {
+    "model": "random_forest_regressor",
+    "records": 731,
+    "mae": 3.04943666928935,
+    "mse": 14.06542882408992,
+    "rmse": 3.750390489547711,
+    "r2": 0.9595866546781532,
+    "mean_residual": -0.0901414948948463,
+    "residual_standard_deviation": 3.7493070473072807,
+    "minimum_prediction": 26.279023404581565,
+    "maximum_prediction": 93.47010761453826
+  }
+]

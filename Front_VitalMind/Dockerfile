@@ -10,6 +10,9 @@ COPY . .
 ARG VITE_API_URL=http://localhost:4000/api
 ENV VITE_API_URL=$VITE_API_URL
 
+ARG VITE_ML_API_URL=http://localhost:8000/api/v1
+ENV VITE_ML_API_URL=$VITE_ML_API_URL
+
 RUN npm run build
 
 FROM nginx:1.27-alpine

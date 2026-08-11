@@ -1,0 +1,84 @@
+{
+  "method": "kmeans",
+  "data_level": "aggregated_user_profiles",
+  "data_source": "training_only",
+  "users": 250,
+  "selected_clusters": 2,
+  "selected_metrics": {
+    "n_clusters": 2.0,
+    "silhouette_score": 0.3614526747961719,
+    "davies_bouldin_score": 1.0408441897970782,
+    "calinski_harabasz_score": 184.40390548800426,
+    "inertia": 2867.68917732266,
+    "minimum_cluster_size": 90.0,
+    "maximum_cluster_size": 160.0
+  },
+  "pca_explained_variance_2d": 0.6558364369789255,
+  "features": [
+    "age",
+    "height_cm",
+    "weight_kg",
+    "bmi",
+    "water_glasses_mean",
+    "exercise_minutes_mean",
+    "sleep_hours_mean",
+    "healthy_meals_count_mean",
+    "meditation_minutes_mean",
+    "pain_mean",
+    "temperature_c_mean",
+    "systolic_mmhg_mean",
+    "diastolic_mmhg_mean",
+    "glucose_mg_dl_mean",
+    "heart_rate_bpm_mean",
+    "stress_level_mean",
+    "energy_level_mean",
+    "sleep_quality_mean",
+    "mood_score_mean",
+    "records_count"
+  ],
+  "excluded_variables": [
+    "risk_level",
+    "wellbeing_score",
+    "profile_type",
+    "is_anomaly",
+    "risk_factors_count"
+  ],
+  "cluster_descriptions": {
+    "0": {
+      "users": 160,
+      "relatively_higher_features": [
+        "stress_level_mean",
+        "pain_mean"
+      ],
+      "relatively_lower_features": [
+        "exercise_minutes_mean",
+        "sleep_hours_mean",
+        "healthy_meals_count_mean",
+        "energy_level_mean",
+        "sleep_quality_mean"
+      ],
+      "interpretation": "Perfil exploratorio construido por similitud estadística. No representa una categoría médica."
+    },
+    "1": {
+      "users": 90,
+      "relatively_higher_features": [
+        "exercise_minutes_mean",
+        "sleep_hours_mean",
+        "healthy_meals_count_mean",
+        "energy_level_mean",
+        "sleep_quality_mean"
+      ],
+      "relatively_lower_features": [
+        "stress_level_mean",
+        "pain_mean"
+      ],
+      "interpretation": "Perfil exploratorio construido por similitud estadística. No representa una categoría médica."
+    }
+  },
+  "limitations": [
+    "Synthetic dataset",
+    "Exploratory clusters",
+    "Not clinically validated",
+    "Cluster identifiers have no ordinal meaning"
+  ]
+}

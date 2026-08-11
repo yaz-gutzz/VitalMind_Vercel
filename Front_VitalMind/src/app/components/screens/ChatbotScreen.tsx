@@ -4,7 +4,8 @@ import { motion } from "motion/react";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import vitalMindLogo from "../../../imports/Captura_de_pantalla_2026-07-07_185523-removebg-preview.png";
 import { useTheme } from "../ThemeContext";
-import { apiRequest } from "../../lib/api";
+
+const ML_API_BASE = import.meta.env.VITE_ML_API_URL || "http://localhost:8000/api/v1";
 
 type Message = {
   id: number;
@@ -36,6 +37,40 @@ export function ChatbotScreen() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
+  const sendToMlService = async (
+    message: string,
+  ) => {
+    const response = await fetch(`${ML_API_BASE}/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        request_id: crypto.randomUUID(),
+        user_id: localStorage.getItem("userName") || "anonymous",
+        analysis_date: new Date().toISOString().slice(0, 10),
+        message,
+        context: {
+          risk_level: "medium",
+          wellbeing_score: 50,
+          wellbeing_level: "medium",
+          bmi: 24,
+          recommendations: [],
+        },
+      }),
+    });
+
+    const isJson = response.headers.get("content-type")?.includes("application/json");
+    const payload = isJson ? await response.json() : null;
+
+    if (!response.ok) {
+      const detail = payload?.detail?.message || payload?.message || "No pude conectarme con el chatbot de IA.";
+      throw new Error(detail);
+    }
+
+    return payload as { answer: string };
+  };
+
   const handleSend = (text?: string) => {
     const msg = text ?? inputText;
     if (!msg.trim() || typing) return;
@@ -49,13 +84,10 @@ export function ChatbotScreen() {
     setInputText("");
     setTyping(true);
 
-    // Respuesta real generada por IA (Claude vía el backend), no frases fijas.
-    apiRequest<{ reply: string }>("/chat/message", {
-      method: "POST",
-      body: JSON.stringify({ message: msg, history }),
-    })
+    // El chat se conecta directo al ML service; el resto de la app sigue usando el backend.
+    sendToMlService(msg)
       .then((result) => {
-        const botMsg: Message = { id: Date.now() + 1, text: result.reply, sender: "bot", timestamp: new Date() };
+        const botMsg: Message = { id: Date.now() + 1, text: result.answer, sender: "bot", timestamp: new Date() };
         setMessages((p) => [...p, botMsg]);
       })
       .catch((error) => {

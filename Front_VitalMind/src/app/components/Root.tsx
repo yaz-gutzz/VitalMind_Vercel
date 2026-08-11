@@ -5,6 +5,8 @@ import { Toaster } from "sonner";
 import { ThemeProvider, useTheme } from "./ThemeContext";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import vitalMindLogo from "../../imports/Captura_de_pantalla_2026-07-07_185523-removebg-preview.png";
+import { clearSession, getSession } from "../lib/session";
+import { useSessionTimeout } from "../hooks/useSessionTimeout";
 
 const navItems = [
   { icon: Home,          label: "Inicio",   path: "/dashboard" },
@@ -26,24 +28,6 @@ function isActive(current: string, path: string) {
   );
 }
 
-function getDisplayName() {
-  const storedName = localStorage.getItem("userName")?.trim();
-  if (storedName) return storedName;
-
-  const storedUser = localStorage.getItem("user");
-  if (storedUser) {
-    try {
-      const parsed = JSON.parse(storedUser);
-      const name = parsed?.name || parsed?.nombre || parsed?.fullName;
-      if (typeof name === "string" && name.trim()) return name.trim();
-    } catch {
-      return "Usuario";
-    }
-  }
-
-  return "Usuario";
-}
-
 function getInitials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean);
   if (!words.length || name === "Usuario") return "U";
@@ -54,16 +38,29 @@ function RootContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { dark, toggle } = useTheme();
+  const session = getSession();
   const showNav = !hideNavPaths.includes(location.pathname);
-  const displayName = getDisplayName();
+  const displayName = session?.name?.trim() || "Usuario";
   const initials = getInitials(displayName);
 
+  useSessionTimeout({
+    enabled: true,
+    routeKey: location.pathname,
+    onExpire: () => navigate("/auth", { replace: true }),
+  });
+
   useEffect(() => {
-    const authenticated = localStorage.getItem("isAuthenticated");
-    if (["/", "/splash", "/onboarding"].includes(location.pathname)) return;
-    if (!authenticated && location.pathname !== "/auth") navigate("/auth");
-    else if (authenticated && location.pathname === "/") navigate("/dashboard");
-  }, [location.pathname, navigate]);
+    if (["/", "/splash", "/onboarding"].includes(location.pathname)) {
+      if (location.pathname === "/" && session) {
+        navigate(session.role === "admin" ? "/admin/dashboard" : "/dashboard", { replace: true });
+      }
+      return;
+    }
+
+    if (!session && location.pathname !== "/auth") {
+      navigate("/auth", { replace: true });
+    }
+  }, [location.pathname, navigate, session]);
 
   /* ── colour tokens ─────────────────────────────────────── */
   const frameBg      = dark ? "#070A12" : "#F8FAFC";
@@ -75,8 +72,8 @@ function RootContent() {
   const textMuted    = dark ? "#9CA3AF" : "#64748B";
 
   const handleLogout = () => {
-    localStorage.removeItem("isAuthenticated");
-    navigate("/auth");
+    clearSession();
+    navigate("/auth", { replace: true });
   };
 
   return (

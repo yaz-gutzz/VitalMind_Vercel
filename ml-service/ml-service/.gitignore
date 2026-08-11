@@ -1,0 +1,47 @@
+~~~gitignore
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Variables de entorno
+.env
+!.env.example
+
+# Archivos temporales
+*.tmp
+*.temp
+*.log
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+
+# Modelos temporales
+*.onnx
+
+# Datos sensibles o privados
+data/private/
+data/confidential/
+
+# Caché de librerías
+.cache/
+huggingface/
+```
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/

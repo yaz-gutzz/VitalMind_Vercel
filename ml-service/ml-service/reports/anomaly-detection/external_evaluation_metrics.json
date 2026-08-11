@@ -1,0 +1,28 @@
+{
+  "method": "isolation_forest",
+  "training_type": "unsupervised",
+  "contamination": 0.03,
+  "records": 3418,
+  "detected_anomalies": 103,
+  "detected_percentage": 3.013458162668227,
+  "external_synthetic_anomalies": 97,
+  "external_synthetic_percentage": 2.8379169104739614,
+  "accuracy_external": 0.949093036863663,
+  "precision_external": 0.1262135922330097,
+  "recall_external": 0.13402061855670103,
+  "f1_external": 0.13,
+  "confusion_matrix": {
+    "true_negative": 3231,
+    "false_positive": 90,
+    "false_negative": 84,
+    "true_positive": 13
+  },
+  "label_usage": "External evaluation only; not used during training",
+  "limitations": [
+    "Synthetic dataset",
+    "Synthetic external reference label",
+    "Contamination configured at 3 percent",
+    "Not clinically validated",
+    "Detected anomalies require contextual review"
+  ]
+}

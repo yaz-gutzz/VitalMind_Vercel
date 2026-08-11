@@ -2,7 +2,8 @@ import { Outlet, useLocation, useNavigate, Navigate } from "react-router";
 import { LayoutDashboard, Users, BarChart2, Bell, Settings, LogOut, Sun, Moon, Shield } from "lucide-react";
 import { Toaster } from "sonner";
 import { AdminThemeProvider, useAdminTheme } from "./admin/AdminThemeContext";
-import { getSession } from "../lib/api";
+import { getSession, clearSession } from "../lib/session";
+import { useSessionTimeout } from "../hooks/useSessionTimeout";
 
 const adminNavItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin/dashboard" },
@@ -16,6 +17,12 @@ function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { dark, toggle } = useAdminTheme();
+
+  useSessionTimeout({
+    enabled: true,
+    routeKey: location.pathname,
+    onExpire: () => navigate("/auth", { replace: true }),
+  });
 
   const bg = dark ? "#070A12" : "#F8FAFC";
   const panelBg = dark ? "#090D16" : "#FFFFFF";
@@ -82,7 +89,10 @@ function AdminLayout() {
             </button>
 
             <button
-              onClick={() => navigate("/auth")}
+              onClick={() => {
+                clearSession();
+                navigate("/auth", { replace: true });
+              }}
               className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 transition-all"
               style={{ backgroundColor: dark ? "rgba(255,255,255,0.045)" : "#F8FAFC", color: text, border: `1px solid ${panelBorder}` }}
             >

@@ -1,0 +1,42 @@
+{
+  "prediction": {
+    "wellbeing_score": 67.5912,
+    "raw_wellbeing_score": 67.5912,
+    "level": "medium"
+  },
+  "message": "Los indicadores reflejan un nivel de bienestar intermedio. Conviene revisar hábitos como sueño, actividad, estrés y alimentación.",
+  "input": {
+    "age": 20.0,
+    "height_cm": 160.0,
+    "weight_kg": 66.0,
+    "bmi": 25.78,
+    "water_glasses": 6.0,
+    "exercise_minutes": 35.0,
+    "sleep_hours": 6.5,
+    "healthy_meals_count": 3.0,
+    "meditation_minutes": 10.0,
+    "pain": 2.0,
+    "temperature_c": 36.7,
+    "systolic_mmhg": 118.0,
+    "diastolic_mmhg": 76.0,
+    "glucose_mg_dl": 92.0,
+    "heart_rate_bpm": 74.0,
+    "stress_level": 4.0,
+    "energy_level": 7.0,
+    "sleep_quality": 6.0,
+    "mood": "good"
+  },
+  "model_information": {
+    "algorithm": "ridge_regression",
+    "alpha": 10.0,
+    "artifact": "best_wellbeing_regressor.joblib",
+    "feature_count": 19,
+    "score_range": {
+      "minimum": 0,
+      "maximum": 100
+    },
+    "data_type": "synthetic",
+    "clinical_validation": false
+  },
+  "disclaimer": "Estimación generada con datos sintéticos. No sustituye una evaluación médica ni representa una medición clínica validada."
+}

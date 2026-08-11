@@ -1,0 +1,18 @@
+{
+  "model": "ridge_regression",
+  "parameters": {
+    "alpha": 10.0
+  },
+  "records": 731,
+  "mae": 2.8872657820538645,
+  "mse": 12.370703099861283,
+  "rmse": 3.5172010320510942,
+  "r2": 0.9644560075273011,
+  "mean_residual": -0.026652598922473566,
+  "residual_standard_deviation": 3.517100046747599,
+  "median_absolute_error_manual": 2.6659565071736466,
+  "maximum_absolute_error": 10.600956725382318,
+  "mean_squared_error_manual": 12.370703099861283,
+  "minimum_prediction": 24.281008996152934,
+  "maximum_prediction": 102.52095672538232
+}

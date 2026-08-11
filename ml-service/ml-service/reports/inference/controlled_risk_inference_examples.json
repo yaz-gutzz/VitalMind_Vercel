@@ -1,0 +1,140 @@
+{
+  "low_profile": {
+    "prediction": {
+      "risk_level": "low",
+      "confidence": 0.999665,
+      "probabilities": {
+        "high": 0.0,
+        "low": 0.999665,
+        "medium": 0.000335
+      }
+    },
+    "message": "Los indicadores analizados muestran un nivel preventivo bajo. Mantén hábitos saludables y continúa registrando tu información.",
+    "input": {
+      "age": 24.0,
+      "height_cm": 165.0,
+      "weight_kg": 60.0,
+      "bmi": 22.04,
+      "water_glasses": 9.0,
+      "exercise_minutes": 55.0,
+      "sleep_hours": 8.0,
+      "healthy_meals_count": 4.0,
+      "meditation_minutes": 20.0,
+      "pain": 0.0,
+      "temperature_c": 36.5,
+      "systolic_mmhg": 112.0,
+      "diastolic_mmhg": 72.0,
+      "glucose_mg_dl": 88.0,
+      "heart_rate_bpm": 68.0,
+      "stress_level": 2.0,
+      "energy_level": 9.0,
+      "sleep_quality": 9.0,
+      "mood": "very_good"
+    },
+    "model_information": {
+      "algorithm": "logistic_regression",
+      "artifact": "best_risk_classifier_safe.joblib",
+      "feature_count": 19,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ],
+      "data_type": "synthetic",
+      "clinical_validation": false
+    },
+    "disclaimer": "Resultado preventivo generado con datos sintéticos. No sustituye una evaluación médica ni representa un diagnóstico."
+  },
+  "medium_profile": {
+    "prediction": {
+      "risk_level": "medium",
+      "confidence": 0.7961,
+      "probabilities": {
+        "high": 0.194309,
+        "low": 0.00959,
+        "medium": 0.7961
+      }
+    },
+    "message": "Se identificaron indicadores que conviene vigilar. Revisa tus hábitos recientes y busca orientación profesional si tienes molestias.",
+    "input": {
+      "age": 35.0,
+      "height_cm": 168.0,
+      "weight_kg": 76.0,
+      "bmi": 26.93,
+      "water_glasses": 5.0,
+      "exercise_minutes": 20.0,
+      "sleep_hours": 6.0,
+      "healthy_meals_count": 2.0,
+      "meditation_minutes": 5.0,
+      "pain": 3.0,
+      "temperature_c": 36.9,
+      "systolic_mmhg": 128.0,
+      "diastolic_mmhg": 82.0,
+      "glucose_mg_dl": 108.0,
+      "heart_rate_bpm": 82.0,
+      "stress_level": 6.0,
+      "energy_level": 5.0,
+      "sleep_quality": 5.0,
+      "mood": "neutral"
+    },
+    "model_information": {
+      "algorithm": "logistic_regression",
+      "artifact": "best_risk_classifier_safe.joblib",
+      "feature_count": 19,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ],
+      "data_type": "synthetic",
+      "clinical_validation": false
+    },
+    "disclaimer": "Resultado preventivo generado con datos sintéticos. No sustituye una evaluación médica ni representa un diagnóstico."
+  },
+  "high_profile": {
+    "prediction": {
+      "risk_level": "high",
+      "confidence": 0.999997,
+      "probabilities": {
+        "high": 0.999997,
+        "low": 0.0,
+        "medium": 3e-06
+      }
+    },
+    "message": "Se identificó un nivel preventivo elevado. Este resultado no es un diagnóstico. Considera consultar a un profesional de la salud, especialmente si presentas síntomas.",
+    "input": {
+      "age": 58.0,
+      "height_cm": 162.0,
+      "weight_kg": 92.0,
+      "bmi": 35.06,
+      "water_glasses": 2.0,
+      "exercise_minutes": 0.0,
+      "sleep_hours": 4.0,
+      "healthy_meals_count": 0.0,
+      "meditation_minutes": 0.0,
+      "pain": 8.0,
+      "temperature_c": 38.2,
+      "systolic_mmhg": 168.0,
+      "diastolic_mmhg": 104.0,
+      "glucose_mg_dl": 178.0,
+      "heart_rate_bpm": 112.0,
+      "stress_level": 10.0,
+      "energy_level": 2.0,
+      "sleep_quality": 2.0,
+      "mood": "very_bad"
+    },
+    "model_information": {
+      "algorithm": "logistic_regression",
+      "artifact": "best_risk_classifier_safe.joblib",
+      "feature_count": 19,
+      "classes": [
+        "high",
+        "low",
+        "medium"
+      ],
+      "data_type": "synthetic",
+      "clinical_validation": false
+    },
+    "disclaimer": "Resultado preventivo generado con datos sintéticos. No sustituye una evaluación médica ni representa un diagnóstico."
+  }
+}

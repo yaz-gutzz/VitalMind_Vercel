@@ -1,0 +1,41 @@
+{
+  "evaluation_stage": "final_test",
+  "model": "ridge_regression",
+  "parameters": {
+    "alpha": 10.0
+  },
+  "dataset": "test_model.csv",
+  "records": 851,
+  "mae": 3.1229654790503703,
+  "mse": 14.643177274693294,
+  "rmse": 3.8266404684387707,
+  "median_absolute_error": 2.704402727005103,
+  "r2": 0.9583829152606647,
+  "mean_residual": 0.24173359871395528,
+  "residual_standard_deviation": 3.8189975310212096,
+  "minimum_residual": -15.02347415269351,
+  "maximum_residual": 10.400717454499883,
+  "minimum_absolute_error": 0.004640384651310114,
+  "maximum_absolute_error": 15.02347415269351,
+  "error_percentiles": {
+    "p25": 1.4496563537667448,
+    "p50": 2.704402727005103,
+    "p75": 4.4205455321666385,
+    "p90": 5.925640765870973,
+    "p95": 7.027426840693224
+  },
+  "actual_range": {
+    "minimum": 19.56,
+    "maximum": 99.82
+  },
+  "prediction_range": {
+    "minimum": 24.39051078517422,
+    "maximum": 103.88347415269351
+  },
+  "mean_squared_error_manual": 14.643177274693294,
+  "limitations": [
+    "Synthetic target",
+    "Not clinically validated",
+    "Test set used once after model selection"
+  ]
+}

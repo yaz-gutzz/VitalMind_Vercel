@@ -1,3 +1,9 @@
+import {
+  clearSession as clearStoredSession,
+  getSession as getStoredSession,
+  touchSession,
+} from "./session";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
 type RequestOptions = RequestInit & { token?: string | null };
@@ -6,9 +12,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
 
-  const token = options.token ?? localStorage.getItem("authToken");
+  const session = getStoredSession();
+  const token = options.token ?? session?.token ?? null;
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
+    touchSession();
   }
 
   const response = await fetch(`${API_BASE}${path}`, {
@@ -21,6 +29,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   if (!response.ok) {
     const message = payload?.message || payload?.error || "Error de API";
+    if (response.status === 401 || response.status === 403) {
+      clearStoredSession({ notify: true });
+    }
     throw new Error(message);
   }
 
@@ -28,25 +39,23 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 }
 
 export function setSession(token: string, userName: string, role?: string) {
-  localStorage.setItem("authToken", token);
-  localStorage.setItem("isAuthenticated", "true");
-  localStorage.setItem("userName", userName);
-  if (role) localStorage.setItem("userRole", role);
+  clearStoredSession();
+  sessionStorage.setItem("authToken", token);
+  sessionStorage.setItem("isAuthenticated", "true");
+  sessionStorage.setItem("userName", userName);
+  sessionStorage.setItem("lastActivityAt", String(Date.now()));
+  if (role) {
+    sessionStorage.setItem("userRole", role);
+    sessionStorage.setItem("isAdmin", role === "admin" ? "true" : "false");
+  }
 }
 
 export function clearSession() {
-  localStorage.removeItem("authToken");
-  localStorage.removeItem("isAuthenticated");
-  localStorage.removeItem("userName");
-  localStorage.removeItem("userRole");
+  clearStoredSession();
 }
 
 export function getSession() {
-  return {
-    token: localStorage.getItem("authToken"),
-    name: localStorage.getItem("userName"),
-    role: localStorage.getItem("userRole"),
-  };
+  return getStoredSession();
 }
 export function getApiBase() {
   return API_BASE;
