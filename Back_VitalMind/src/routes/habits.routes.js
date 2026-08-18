@@ -1,9 +1,85 @@
 import { Router } from "express";
 import { authRequired } from "../middlewares/auth.js";
-import { getTodayHabits, getWeeklyHabits, incrementHabit } from "../controllers/habits.controller.js";
+
+import {
+  getTodayHabits,
+  getWeeklyHabits,
+  incrementHabit,
+  setHabitValue,
+  getHabitHistory,
+} from "../controllers/habits.controller.js";
 
 export const habitsRouter = Router();
 
-habitsRouter.get("/today", authRequired, getTodayHabits);
-habitsRouter.get("/weekly", authRequired, getWeeklyHabits);
-habitsRouter.patch("/:key/increment", authRequired, incrementHabit);
+/*
+|--------------------------------------------------------------------------
+| Hábitos del día
+|--------------------------------------------------------------------------
+*/
+
+habitsRouter.get(
+  "/today",
+  authRequired,
+  getTodayHabits,
+);
+
+/*
+|--------------------------------------------------------------------------
+| Seguimiento semanal
+|--------------------------------------------------------------------------
+*/
+
+habitsRouter.get(
+  "/weekly",
+  authRequired,
+  getWeeklyHabits,
+);
+
+/*
+|--------------------------------------------------------------------------
+| Incrementar hábito
+|--------------------------------------------------------------------------
+|
+| Frontend:
+| POST /api/habits/water/increment
+|
+*/
+
+habitsRouter.post(
+  "/:key/increment",
+  authRequired,
+  incrementHabit,
+);
+
+/*
+|--------------------------------------------------------------------------
+| Establecer valor manualmente
+|--------------------------------------------------------------------------
+|
+| Ejemplo:
+| POST /api/habits/water
+| body: { value: 1.5 }
+|
+*/
+
+habitsRouter.post(
+  "/:key",
+  authRequired,
+  setHabitValue,
+);
+
+/*
+|--------------------------------------------------------------------------
+| Historial de un hábito
+|--------------------------------------------------------------------------
+|
+| Ejemplo:
+| GET /api/habits/water/history
+|
+*/
+
+habitsRouter.get(
+  "/:key/history",
+  authRequired,
+  getHabitHistory,
+);

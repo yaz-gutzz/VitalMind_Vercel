@@ -2,412 +2,1226 @@ import { z } from "zod";
 import { getMySqlPool } from "../config/databases.js";
 import { logAudit } from "../services/audit.service.js";
 
+/*
+|--------------------------------------------------------------------------
+| Validación
+|--------------------------------------------------------------------------
+|
+| Debe coincidir con la tabla real de MySQL:
+|
+| medications:
+| - id
+| - user_id
+| - name
+| - dose
+| - frequency
+| - time_label
+| - color
+| - taken
+| - type
+| - created_at
+| - updated_at
+|
+*/
+
 const medicationSchema = z.object({
-  userId: z.coerce.number().int().positive().optional().nullable(),
-  name: z.string().min(2),
-  dose: z.string().min(1),
-  frequency: z.string().min(1),
-  time_label: z.string().min(1),
-  color: z.string().optional(),
-  taken: z.coerce.boolean().optional(),
-  days_duration:z.coerce.number().int().positive().optional(),
-  type: z.enum(["pastilla","capsula","jarabe","inyeccion","tableta","gota","crema","parche",]).optional(),
+  name: z
+    .string()
+    .trim()
+    .min(2, "El nombre del medicamento debe tener al menos 2 caracteres")
+    .max(120, "El nombre del medicamento es demasiado largo"),
+
+  dose: z
+    .string()
+    .trim()
+    .min(1, "La dosis es obligatoria")
+    .max(80, "La dosis es demasiado larga"),
+
+  frequency: z
+    .string()
+    .trim()
+    .min(1, "La frecuencia es obligatoria")
+    .max(80, "La frecuencia es demasiado larga"),
+
+  time_label: z
+    .string()
+    .trim()
+    .min(1, "La hora es obligatoria")
+    .max(80, "La hora es demasiado larga"),
+
+  color: z
+    .string()
+    .trim()
+    .max(20)
+    .optional(),
+
+  taken: z
+    .coerce
+    .boolean()
+    .optional(),
+
+  type: z
+    .enum([
+      "pastilla",
+      "capsula",
+      "jarabe",
+      "inyeccion",
+    ])
+    .optional(),
 });
+
+/*
+|--------------------------------------------------------------------------
+| Utilidad
+|--------------------------------------------------------------------------
+*/
+
+function getUserId(req) {
+  const userId = Number(
+    req.user?.sub ?? req.user?.id,
+  );
+
+  return Number.isInteger(userId) &&
+    userId > 0
+    ? userId
+    : null;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Listar medicamentos
+|--------------------------------------------------------------------------
+*/
 
 export async function listMedications(req, res, next) {
   try {
-    const { search = "", taken = "" } = req.query;
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
+    }
+
+    const {
+      search = "",
+      taken = "",
+    } = req.query;
+
     const pool = getMySqlPool();
-    const clauses = [];
-    const params = [];
 
-    // Cada usuario solo debe ver SUS propios medicamentos, nunca los de otros
-    // usuarios de la base de datos (antes se devolvían todos los registros).
-    if (req.user?.role !== "admin") {
-      clauses.push("user_id = ?");
-      params.push(req.user.sub);
+    const clauses = [
+      "user_id = ?",
+    ];
+
+    const params = [
+      userId,
+    ];
+
+    if (
+      typeof search === "string" &&
+      search.trim()
+    ) {
+      clauses.push(
+        "(name LIKE ? OR dose LIKE ? OR frequency LIKE ?)",
+      );
+
+      const term = `%${search.trim()}%`;
+
+      params.push(
+        term,
+        term,
+        term,
+      );
     }
 
-    if (search) {
-      clauses.push("(name LIKE ? OR dose LIKE ? OR frequency LIKE ?)");
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-    if (taken === "true" || taken === "false") {
-      clauses.push("taken = ?");
-      params.push(taken === "true" ? 1 : 0);
+    if (
+      taken === "true" ||
+      taken === "false"
+    ) {
+      clauses.push(
+        "taken = ?",
+      );
+
+      params.push(
+        taken === "true"
+          ? 1
+          : 0,
+      );
     }
 
-    const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    const [rows] = await pool.query(
-      `SELECT id, user_id AS userId, name, dose, frequency, time_label AS time, color, taken, days_duration, type FROM medications ${where} ORDER BY id DESC`,
-      params
+    const where = `WHERE ${clauses.join(
+      " AND ",
+    )}`;
+
+    const [rows] =
+      await pool.query(
+        `
+          SELECT
+            id,
+            user_id AS userId,
+            name,
+            dose,
+            frequency,
+            time_label AS time,
+            color,
+            taken,
+            type,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM medications
+          ${where}
+          ORDER BY id DESC
+        `,
+        params,
+      );
+
+    return res.json(
+      rows.map((item) => ({
+        ...item,
+
+        id: Number(item.id),
+
+        userId: Number(
+          item.userId,
+        ),
+
+        taken: Boolean(
+          item.taken,
+        ),
+
+        tomado: Boolean(
+          item.taken,
+        ),
+      })),
+    );
+  } catch (error) {
+    console.error(
+      "Error listando medicamentos:",
+      error,
     );
 
-    return res.json(rows.map((item) => ({ ...item, tomado: Boolean(item.taken) })));
-  } catch (error) {
     return next(error);
   }
 }
 
-export async function getMedicationById(req, res, next) {
+/*
+|--------------------------------------------------------------------------
+| Obtener medicamento por ID
+|--------------------------------------------------------------------------
+*/
+
+export async function getMedicationById(
+  req,
+  res,
+  next,
+) {
   try {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
+    }
+
     const pool = getMySqlPool();
-    const [rows] = await pool.query(
-      "SELECT id, user_id AS userId, name, dose, frequency, time_label AS time, color, taken, days_duration, type FROM medications WHERE id = ? LIMIT 1",
-      [req.params.id]
+
+    const [rows] =
+      await pool.query(
+        `
+          SELECT
+            id,
+            user_id AS userId,
+            name,
+            dose,
+            frequency,
+            time_label AS time,
+            color,
+            taken,
+            type,
+            created_at AS createdAt,
+            updated_at AS updatedAt
+          FROM medications
+          WHERE id = ?
+            AND user_id = ?
+          LIMIT 1
+        `,
+        [
+          req.params.id,
+          userId,
+        ],
+      );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        error: "Not Found",
+        message:
+          "Medicamento no encontrado",
+      });
+    }
+
+    const medication =
+      rows[0];
+
+    return res.json({
+      ...medication,
+
+      id: Number(
+        medication.id,
+      ),
+
+      userId: Number(
+        medication.userId,
+      ),
+
+      taken: Boolean(
+        medication.taken,
+      ),
+
+      tomado: Boolean(
+        medication.taken,
+      ),
+    });
+  } catch (error) {
+    console.error(
+      "Error obteniendo medicamento:",
+      error,
     );
 
-    if (!rows.length || (req.user?.role !== "admin" && Number(rows[0].userId) !== Number(req.user.sub))) {
-      return res.status(404).json({ error: "Not Found", message: "Medicamento no encontrado" });
-    }
-
-    return res.json({ ...rows[0], tomado: Boolean(rows[0].taken) });
-  } catch (error) {
     return next(error);
   }
 }
 
-export async function createMedication(req, res, next) {
-  try {
-    const body = medicationSchema.parse(req.body);
-    const pool = getMySqlPool();
-    const ownerId = body.userId || req.user?.sub || null;
-    const [result] = await pool.query(
-  `INSERT INTO medications 
-  (user_id, name, dose, frequency, time_label, color, taken, days_duration, type)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  [ownerId, body.name, body.dose, body.frequency, body.time_label, body.color || "#0F766E", body.taken ? 1 : 0, body.days_duration || 0, body.type || "pastilla"]);
+/*
+|--------------------------------------------------------------------------
+| Crear medicamento
+|--------------------------------------------------------------------------
+*/
 
-    await logAudit(req.user?.sub || null, "medications.create", "medications", String(result.insertId), body);
-    return res.status(201).json({ id: Number(result.insertId), ...body, tomado: Boolean(body.taken) });
+export async function createMedication(
+  req,
+  res,
+  next,
+) {
+  try {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
+    }
+
+    const body =
+      medicationSchema.parse(
+        req.body,
+      );
+
+    const pool = getMySqlPool();
+
+    /*
+     * El usuario autenticado es siempre
+     * el propietario del medicamento.
+     */
+    const ownerId = userId;
+
+    const [result] =
+      await pool.query(
+        `
+          INSERT INTO medications (
+            user_id,
+            name,
+            dose,
+            frequency,
+            time_label,
+            color,
+            taken,
+            type
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
+          ownerId,
+          body.name,
+          body.dose,
+          body.frequency,
+          body.time_label,
+          body.color ||
+            "#0F766E",
+          body.taken ? 1 : 0,
+          body.type ||
+            "pastilla",
+        ],
+      );
+
+    const medication = {
+      id: Number(
+        result.insertId,
+      ),
+
+      userId: ownerId,
+
+      name: body.name,
+
+      dose: body.dose,
+
+      frequency:
+        body.frequency,
+
+      time: body.time_label,
+
+      color:
+        body.color ||
+        "#0F766E",
+
+      taken: Boolean(
+        body.taken,
+      ),
+
+      tomado: Boolean(
+        body.taken,
+      ),
+
+      type:
+        body.type ||
+        "pastilla",
+    };
+
+    await logAudit(
+      userId,
+      "medications.create",
+      "medications",
+      String(
+        result.insertId,
+      ),
+      medication,
+    );
+
+    return res
+      .status(201)
+      .json(medication);
   } catch (error) {
+    console.error(
+      "Error creando medicamento:",
+      error,
+    );
+
     return next(error);
   }
 }
 
-export async function updateMedication(req, res, next) {
-  try {
-    const body = medicationSchema.partial().parse(req.body);
-    const pool = getMySqlPool();
-    const [rows] = await pool.query("SELECT * FROM medications WHERE id = ? LIMIT 1", [req.params.id]);
+/*
+|--------------------------------------------------------------------------
+| Actualizar medicamento
+|--------------------------------------------------------------------------
+*/
 
-    if (!rows.length || (req.user?.role !== "admin" && Number(rows[0].user_id) !== Number(req.user.sub))) {
-      return res.status(404).json({ error: "Not Found", message: "Medicamento no encontrado" });
+export async function updateMedication(
+  req,
+  res,
+  next,
+) {
+  try {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
     }
 
-    const current = rows[0];
+    const body =
+      medicationSchema
+        .partial()
+        .parse(req.body);
+
+    const pool = getMySqlPool();
+
+    const [rows] =
+      await pool.query(
+        `
+          SELECT *
+          FROM medications
+          WHERE id = ?
+            AND user_id = ?
+          LIMIT 1
+        `,
+        [
+          req.params.id,
+          userId,
+        ],
+      );
+
+    if (!rows.length) {
+      return res.status(404).json({
+        error: "Not Found",
+        message:
+          "Medicamento no encontrado",
+      });
+    }
+
+    const current =
+      rows[0];
+
     const nextMedication = {
-      userId: body.userId ?? current.user_id,
-      name: body.name || current.name,
-      dose: body.dose || current.dose,
-      frequency: body.frequency || current.frequency,
-      time_label: body.time_label || current.time_label,
-      color: body.color || current.color,
-      taken: typeof body.taken === "boolean" ? body.taken : Boolean(current.taken),
-      days_duration: body.days_duration ?? current.days_duration,
-      type: body.type || current.type,
+      name:
+        body.name ??
+        current.name,
+
+      dose:
+        body.dose ??
+        current.dose,
+
+      frequency:
+        body.frequency ??
+        current.frequency,
+
+      time_label:
+        body.time_label ??
+        current.time_label,
+
+      color:
+        body.color ??
+        current.color,
+
+      taken:
+        typeof body.taken ===
+        "boolean"
+          ? body.taken
+          : Boolean(
+              current.taken,
+            ),
+
+      type:
+        body.type ??
+        current.type,
     };
 
     await pool.query(
-      `UPDATE medications SET user_id = ?, name = ?, dose = ?, frequency = ?, time_label = ?, color = ?, taken = ?, days_duration = ?, type = ? WHERE id = ?`,
-      [nextMedication.userId, nextMedication.name, nextMedication.dose, nextMedication.frequency, nextMedication.time_label, nextMedication.color, nextMedication.taken ? 1 : 0, nextMedication.days_duration, nextMedication.type, req.params.id]
+      `
+        UPDATE medications
+        SET
+          name = ?,
+          dose = ?,
+          frequency = ?,
+          time_label = ?,
+          color = ?,
+          taken = ?,
+          type = ?
+        WHERE id = ?
+          AND user_id = ?
+      `,
+      [
+        nextMedication.name,
+        nextMedication.dose,
+        nextMedication.frequency,
+        nextMedication.time_label,
+        nextMedication.color,
+        nextMedication.taken
+          ? 1
+          : 0,
+        nextMedication.type,
+        req.params.id,
+        userId,
+      ],
     );
 
-    await logAudit(req.user?.sub || null, "medications.update", "medications", String(req.params.id), nextMedication);
-    return res.json({ id: Number(req.params.id), ...nextMedication, tomado: Boolean(nextMedication.taken) });
+    const response = {
+      id: Number(
+        req.params.id,
+      ),
+
+      userId,
+
+      name:
+        nextMedication.name,
+
+      dose:
+        nextMedication.dose,
+
+      frequency:
+        nextMedication.frequency,
+
+      time:
+        nextMedication.time_label,
+
+      time_label:
+        nextMedication.time_label,
+
+      color:
+        nextMedication.color,
+
+      taken:
+        Boolean(
+          nextMedication.taken,
+        ),
+
+      tomado:
+        Boolean(
+          nextMedication.taken,
+        ),
+
+      type:
+        nextMedication.type,
+    };
+
+    await logAudit(
+      userId,
+      "medications.update",
+      "medications",
+      String(
+        req.params.id,
+      ),
+      response,
+    );
+
+    return res.json(
+      response,
+    );
   } catch (error) {
+    console.error(
+      "Error actualizando medicamento:",
+      error,
+    );
+
     return next(error);
   }
 }
 
-export async function registerMedicationTaken(req,res,next){
+/*
+|--------------------------------------------------------------------------
+| Registrar medicamento tomado
+|--------------------------------------------------------------------------
+*/
 
-try{
-
-const pool = getMySqlPool();
-
-
-const [medRows] = await pool.query(
-`
-SELECT *
-FROM medications
-WHERE id=?
-`,
-[
-req.params.id
-]
-);
-
-
-if(!medRows.length){
-
-return res.status(404).json({
-message:"Medicamento no encontrado"
-});
-
-}
-
-
-const medication = medRows[0];
-
-
-// Fecha y hora actual
-const now = new Date();
-
-
-// calcular cuántas tomas necesita al día
-
-const required = getDailyFrequency(
-medication.frequency
-);
-
-
-
-// revisar cuántas tomas tiene hoy
-
-const [todayLogs] = await pool.query(
-`
-SELECT COUNT(*) total
-FROM medication_logs
-WHERE medication_id=?
-AND DATE(taken_at)=CURDATE()
-AND taken=1
-`,
-[
-medication.id
-]
-);
-
-
-
-if(todayLogs[0].total >= required){
-
-return res.status(400).json({
-message:"Ya completaste las tomas de hoy"
-});
-
-}
-
-
-
-// registrar nueva toma
-
-await pool.query(
-`
-INSERT INTO medication_logs
-(
- medication_id,
- user_id,
- taken
-)
-VALUES(?,?,?)
-`,
-[
- medication.id,
- medication.user_id,
- 1
-]
-);
-
-
-
-// actualizar estado del medicamento
-
-await updateMedicationStatus(
-medication.id
-);
-
-
-
-return res.json({
-message:"Toma registrada correctamente"
-});
-
-
-}catch(error){
-
-next(error);
-
-}
-
-}
-
-export async function deleteMedication(req, res, next) {
+export async function registerMedicationTaken(
+  req,
+  res,
+  next,
+) {
   try {
-    const pool = getMySqlPool();
-    const [existingRows] = await pool.query("SELECT user_id FROM medications WHERE id = ? LIMIT 1", [req.params.id]);
-    if (!existingRows.length || (req.user?.role !== "admin" && Number(existingRows[0].user_id) !== Number(req.user.sub))) {
-      return res.status(404).json({ error: "Not Found", message: "Medicamento no encontrado" });
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
     }
 
-    const [result] = await pool.query("DELETE FROM medications WHERE id = ?", [req.params.id]);
+    const pool = getMySqlPool();
+
+    /*
+     * Verificar propietario.
+     */
+    const [medRows] =
+      await pool.query(
+        `
+          SELECT *
+          FROM medications
+          WHERE id = ?
+            AND user_id = ?
+          LIMIT 1
+        `,
+        [
+          req.params.id,
+          userId,
+        ],
+      );
+
+    if (!medRows.length) {
+      return res.status(404).json({
+        error: "Not Found",
+        message:
+          "Medicamento no encontrado",
+      });
+    }
+
+    const medication =
+      medRows[0];
+
+    const frequency =
+      String(
+        medication.frequency ??
+          "",
+      )
+        .trim()
+        .toUpperCase();
+
+    /*
+     * PRN = según necesidad.
+     *
+     * No tiene una cantidad diaria
+     * obligatoria fija.
+     */
+    if (frequency === "PRN") {
+      const now = new Date();
+
+      await pool.query(
+        `
+          INSERT INTO medication_logs (
+            medication_id,
+            user_id,
+            taken_date,
+            taken_time,
+            taken
+          )
+          VALUES (?, ?, CURDATE(), ?, 1)
+        `,
+        [
+          medication.id,
+          userId,
+          now
+            .toTimeString()
+            .slice(
+              0,
+              8,
+            ),
+        ],
+      );
+
+      /*
+       * PRN no se marca automáticamente
+       * con una meta diaria fija.
+       */
+      return res.json({
+        message:
+          "Toma registrada correctamente",
+        taken: true,
+      });
+    }
+
+    /*
+     * Número de tomas requeridas al día.
+     */
+    const required =
+      getDailyFrequency(
+        medication.frequency,
+      );
+
+    /*
+     * Contar tomas reales de HOY.
+     *
+     * IMPORTANTE:
+     * medication_logs usa taken_date,
+     * no taken_at.
+     */
+    const [
+      todayLogs,
+    ] = await pool.query(
+      `
+        SELECT
+          COUNT(*) AS total
+        FROM medication_logs
+        WHERE medication_id = ?
+          AND user_id = ?
+          AND taken_date = CURDATE()
+          AND taken = 1
+      `,
+      [
+        medication.id,
+        userId,
+      ],
+    );
+
+    const totalToday =
+      Number(
+        todayLogs?.[0]?.total ??
+          0,
+      );
+
+    if (
+      totalToday >=
+      required
+    ) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message:
+          "Ya completaste las tomas de hoy",
+      });
+    }
+
+    /*
+     * Registrar nueva toma.
+     */
+    const now = new Date();
+
+    await pool.query(
+      `
+        INSERT INTO medication_logs (
+          medication_id,
+          user_id,
+          taken_date,
+          taken_time,
+          taken
+        )
+        VALUES (?, ?, CURDATE(), ?, 1)
+      `,
+      [
+        medication.id,
+        userId,
+        now
+          .toTimeString()
+          .slice(
+            0,
+            8,
+          ),
+      ],
+    );
+
+    /*
+     * Actualizar estado global del medicamento.
+     */
+    await updateMedicationStatus(
+      medication.id,
+      userId,
+    );
+
+    return res.json({
+      message:
+        "Toma registrada correctamente",
+
+      taken: true,
+
+      totalToday:
+        totalToday + 1,
+
+      required,
+    });
+  } catch (error) {
+    console.error(
+      "Error registrando toma:",
+      error,
+    );
+
+    return next(error);
+  }
+}
+
+/*
+|--------------------------------------------------------------------------
+| Eliminar medicamento
+|--------------------------------------------------------------------------
+*/
+
+export async function deleteMedication(
+  req,
+  res,
+  next,
+) {
+  try {
+    const userId = getUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
+    }
+
+    const pool = getMySqlPool();
+
+    const [
+      existingRows,
+    ] = await pool.query(
+      `
+        SELECT id
+        FROM medications
+        WHERE id = ?
+          AND user_id = ?
+        LIMIT 1
+      `,
+      [
+        req.params.id,
+        userId,
+      ],
+    );
+
+    if (!existingRows.length) {
+      return res.status(404).json({
+        error: "Not Found",
+        message:
+          "Medicamento no encontrado",
+      });
+    }
+
+    /*
+     * Eliminamos los logs primero.
+     *
+     * Esto evita problemas de FK
+     * si la tabla no tiene CASCADE.
+     */
+    await pool.query(
+      `
+        DELETE FROM medication_logs
+        WHERE medication_id = ?
+          AND user_id = ?
+      `,
+      [
+        req.params.id,
+        userId,
+      ],
+    );
+
+    const [
+      result,
+    ] = await pool.query(
+      `
+        DELETE FROM medications
+        WHERE id = ?
+          AND user_id = ?
+      `,
+      [
+        req.params.id,
+        userId,
+      ],
+    );
 
     if (!result.affectedRows) {
-      return res.status(404).json({ error: "Not Found", message: "Medicamento no encontrado" });
+      return res.status(404).json({
+        error: "Not Found",
+        message:
+          "Medicamento no encontrado",
+      });
     }
 
-    await logAudit(req.user?.sub || null, "medications.delete", "medications", String(req.params.id), {});
-    return res.json({ deleted: true, id: Number(req.params.id) });
+    await logAudit(
+      userId,
+      "medications.delete",
+      "medications",
+      String(
+        req.params.id,
+      ),
+      {},
+    );
+
+    return res.json({
+      deleted: true,
+      id: Number(
+        req.params.id,
+      ),
+    });
   } catch (error) {
+    console.error(
+      "Error eliminando medicamento:",
+      error,
+    );
+
     return next(error);
   }
 }
 
-export async function getMedicationHistory(req,res,next){
+/*
+|--------------------------------------------------------------------------
+| Historial de medicamento
+|--------------------------------------------------------------------------
+*/
 
-try{
+export async function getMedicationHistory(
+  req,
+  res,
+  next,
+) {
+  try {
+    const userId = getUserId(req);
 
-const pool=getMySqlPool();
+    if (!userId) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message:
+          "No se pudo identificar al usuario autenticado.",
+      });
+    }
 
+    const pool = getMySqlPool();
 
-const [rows]=await pool.query(`
+    /*
+     * Verificar propietario.
+     */
+    const [
+      medicationRows,
+    ] = await pool.query(
+      `
+        SELECT id
+        FROM medications
+        WHERE id = ?
+          AND user_id = ?
+        LIMIT 1
+      `,
+      [
+        req.params.id,
+        userId,
+      ],
+    );
 
-SELECT
+    if (!medicationRows.length) {
+      return res.status(404).json({
+        error: "Not Found",
+        message:
+          "Medicamento no encontrado",
+      });
+    }
 
-DATE_FORMAT(days.day,'%d') AS date,
+    /*
+     * Últimos 7 días.
+     *
+     * Usamos taken_date porque esa es la
+     * columna existente en medication_logs.
+     */
+    const [
+      rows,
+    ] = await pool.query(
+      `
+        SELECT
+          DATE_FORMAT(
+            days.day,
+            '%Y-%m-%d'
+          ) AS date,
 
+          COALESCE(
+            SUM(
+              CASE
+                WHEN ml.taken = 1
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS taken,
 
-COALESCE(
-SUM(
-CASE
-WHEN ml.taken=1 THEN 1
-ELSE 0
-END
-),0
-) AS taken,
+          COALESCE(
+            SUM(
+              CASE
+                WHEN ml.taken = 0
+                THEN 1
+                ELSE 0
+              END
+            ),
+            0
+          ) AS missed
 
+        FROM (
+          SELECT CURDATE() AS day
 
-COALESCE(
-SUM(
-CASE
-WHEN ml.taken=0 THEN 1
-ELSE 0
-END
-),0
-) AS missed
+          UNION ALL
 
+          SELECT DATE_SUB(
+            CURDATE(),
+            INTERVAL 1 DAY
+          )
 
-FROM
-(
+          UNION ALL
 
-SELECT CURDATE() day
-UNION ALL SELECT DATE_SUB(CURDATE(),INTERVAL 1 DAY)
-UNION ALL SELECT DATE_SUB(CURDATE(),INTERVAL 2 DAY)
-UNION ALL SELECT DATE_SUB(CURDATE(),INTERVAL 3 DAY)
-UNION ALL SELECT DATE_SUB(CURDATE(),INTERVAL 4 DAY)
-UNION ALL SELECT DATE_SUB(CURDATE(),INTERVAL 5 DAY)
-UNION ALL SELECT DATE_SUB(CURDATE(),INTERVAL 6 DAY)
+          SELECT DATE_SUB(
+            CURDATE(),
+            INTERVAL 2 DAY
+          )
 
-) days
+          UNION ALL
 
+          SELECT DATE_SUB(
+            CURDATE(),
+            INTERVAL 3 DAY
+          )
 
-LEFT JOIN medication_logs ml
+          UNION ALL
 
-ON DATE(ml.taken_at)=days.day
-AND ml.medication_id = ?
+          SELECT DATE_SUB(
+            CURDATE(),
+            INTERVAL 4 DAY
+          )
 
+          UNION ALL
 
-GROUP BY days.day
+          SELECT DATE_SUB(
+            CURDATE(),
+            INTERVAL 5 DAY
+          )
 
-ORDER BY days.day ASC
+          UNION ALL
 
+          SELECT DATE_SUB(
+            CURDATE(),
+            INTERVAL 6 DAY
+          )
+        ) days
 
-`,
-[
-req.params.id
-]
-);
+        LEFT JOIN medication_logs ml
+          ON ml.taken_date = days.day
+          AND ml.medication_id = ?
+          AND ml.user_id = ?
 
+        GROUP BY days.day
+        ORDER BY days.day ASC
+      `,
+      [
+        req.params.id,
+        userId,
+      ],
+    );
 
-return res.json(rows);
+    return res.json(
+      rows.map((row) => ({
+        date: row.date,
+        taken: Number(
+          row.taken ?? 0,
+        ),
+        missed: Number(
+          row.missed ?? 0,
+        ),
+      })),
+    );
+  } catch (error) {
+    console.error(
+      "Error obteniendo historial de medicamento:",
+      error,
+    );
 
-
-}catch(error){
-
-next(error);
-
+    return next(error);
+  }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Frecuencia diaria
+|--------------------------------------------------------------------------
+*/
+
+function getDailyFrequency(
+  frequency,
+) {
+  const value = String(
+    frequency ?? "",
+  )
+    .trim()
+    .toLowerCase();
+
+  switch (value) {
+    case "diario":
+    case "cada 24 horas":
+      return 1;
+
+    case "cada 12 horas":
+      return 2;
+
+    case "cada 8 horas":
+      return 3;
+
+    case "cada 6 horas":
+      return 4;
+
+    default:
+      return 1;
+  }
 }
 
-function getDailyFrequency(frequency){
+/*
+|--------------------------------------------------------------------------
+| Actualizar estado del medicamento
+|--------------------------------------------------------------------------
+*/
 
-switch(frequency){
+async function updateMedicationStatus(
+  id,
+  userId,
+) {
+  const pool = getMySqlPool();
 
-case "Diario":
-case "Cada 24 horas":
-return 1;
+  const [
+    medRows,
+  ] = await pool.query(
+    `
+      SELECT frequency
+      FROM medications
+      WHERE id = ?
+        AND user_id = ?
+      LIMIT 1
+    `,
+    [
+      id,
+      userId,
+    ],
+  );
 
+  if (!medRows.length) {
+    return;
+  }
 
-case "Cada 12 horas":
-return 2;
+  const frequency =
+    String(
+      medRows[0].frequency ??
+        "",
+    )
+      .trim()
+      .toUpperCase();
 
+  /*
+   * PRN no tiene objetivo diario fijo.
+   */
+  if (
+    frequency === "PRN"
+  ) {
+    return;
+  }
 
-case "Cada 8 horas":
-return 3;
+  const required =
+    getDailyFrequency(
+      medRows[0].frequency,
+    );
 
+  /*
+   * Contar tomas de hoy.
+   *
+   * Se usa taken_date, no taken_at.
+   */
+  const [
+    logs,
+  ] = await pool.query(
+    `
+      SELECT
+        COUNT(*) AS total
+      FROM medication_logs
+      WHERE medication_id = ?
+        AND user_id = ?
+        AND taken_date = CURDATE()
+        AND taken = 1
+    `,
+    [
+      id,
+      userId,
+    ],
+  );
 
-case "Cada 6 horas":
-return 4;
+  const total =
+    Number(
+      logs?.[0]?.total ??
+        0,
+    );
 
-
-default:
-return 1;
-
-}
-
-}
-
-async function updateMedicationStatus(id){
-
-const pool=getMySqlPool();
-
-
-const [med]=await pool.query(
-`
-SELECT frequency
-FROM medications
-WHERE id=?
-`,
-[id]
-);
-
-
-if(!med.length)
-return;
-
-
-
-const required=getDailyFrequency(
-med[0].frequency
-);
-
-
-
-const [logs]=await pool.query(
-`
-SELECT COUNT(*) total
-FROM medication_logs
-WHERE medication_id=?
-AND DATE(taken_at)=CURDATE()
-AND taken=1
-`,
-[id]
-);
-
-
-
-await pool.query(
-`
-UPDATE medications
-SET taken=?
-WHERE id=?
-`,
-[
-logs[0].total >= required ? 1 : 0,
-id
-]
-);
-
-
+  await pool.query(
+    `
+      UPDATE medications
+      SET taken = ?
+      WHERE id = ?
+        AND user_id = ?
+    `,
+    [
+      total >= required
+        ? 1
+        : 0,
+      id,
+      userId,
+    ],
+  );
 }

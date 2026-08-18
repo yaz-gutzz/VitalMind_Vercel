@@ -13,16 +13,16 @@ import mediTechLogo from "../../../imports/image_1.png";
 import { useTheme } from "../ThemeContext";
 import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
 import { apiRequest, clearSession } from "../../lib/api";
-import type { MetricsSummary, ProfileMe, ProfileStats } from "../../lib/types";
+import type { MetricsSummary, ProfileMe, ProfileStats, HabitToday } from "../../lib/types";
 
 type Modal = "editProfile" | "personalInfo" | "changePassword" | "privacy" | null;
 
-const achievements = [
-  { icon: Flame, label: "Racha 42d", color: "#EF4444", bg: "#EF444415" },
+const baseAchievements = [
+  { icon: Flame, label: "Racha", color: "#EF4444", bg: "#EF444415" },
   { icon: Droplets, label: "Hidratación", color: "#2563EB", bg: "#2563EB15" },
-  { icon: Activity, label: "Meta semanal", color: "#22C55E", bg: "#22C55E15" },
-  { icon: Star, label: "Top usuario", color: "#F59E0B", bg: "#F59E0B15" },
-  { icon: Zap, label: "Energía alta", color: "#8B5CF6", bg: "#8B5CF615" },
+  { icon: Activity, label: "Actividad", color: "#22C55E", bg: "#22C55E15" },
+  { icon: Star, label: "Bienestar", color: "#F59E0B", bg: "#F59E0B15" },
+  { icon: Zap, label: "Energía", color: "#8B5CF6", bg: "#8B5CF615" },
 ];
 
 export function ProfileScreen() {
@@ -35,6 +35,7 @@ export function ProfileScreen() {
   const [profile, setProfile] = useState<ProfileMe | null>(null);
   const [stats, setStats] = useState<ProfileStats>({ diasActivo: 0, registros: 0, habitos: 0 });
   const [metrics, setMetrics] = useState<MetricsSummary | null>(null);
+  const [habits, setHabits] = useState<HabitToday[]>([]);
 
   // Campos del formulario "Editar perfil" (información personal completa)
   const [editName, setEditName] = useState(storedName);
@@ -69,6 +70,14 @@ export function ProfileScreen() {
     loadProfile().catch(() => null);
     apiRequest<ProfileStats>("/auth/me/stats").then(setStats).catch(() => null);
     apiRequest<MetricsSummary>("/metrics/summary").then(setMetrics).catch(() => null);
+    apiRequest<HabitToday[]>("/habits/today")
+      .then((result) => {
+        setHabits(Array.isArray(result) ? result : []);
+      })
+      .catch((error) => {
+        console.error("Error cargando hábitos del perfil:", error);
+        setHabits([]);
+      });
   }, []);
 
   const bg = dark ? "#0F172A" : "#F8FAFC";
@@ -85,16 +94,169 @@ export function ProfileScreen() {
   const bmiColor = bmi === null ? "#94A3B8" : bmi < 18.5 ? "#F59E0B" : bmi < 25 ? "#22C55E" : bmi < 30 ? "#F59E0B" : "#EF4444";
   const bmiPct = bmi === null ? 0 : Math.min(100, Math.round(((bmi - 10) / (40 - 10)) * 100));
   const wellnessScore = metrics?.wellnessScore ?? 0;
-  const healthScore = [{ name: "score", value: wellnessScore, fill: "#14B8A6" }, { name: "rest", value: 100 - wellnessScore, fill: dark ? "rgba(255,255,255,0.06)" : "#F1F5F9" }];
+  const healthScore = [
+    {
+      name: "score",
+      value: wellnessScore,
+      fill: "#14B8A6",
+    },
+    {
+      name: "rest",
+      value: 100 - wellnessScore,
+      fill: dark ? "rgba(255,255,255,0.06)" : "#F1F5F9",
+    },
+  ];
 
-  const dailyGoals = metrics
-    ? [
-        { label: "Hidratación", current: metrics.waterL, target: metrics.waterGoalL, unit: "L", pct: Math.min(100, Math.round((metrics.waterL / metrics.waterGoalL) * 100)), color: "#2563EB" },
-        { label: "Pasos", current: metrics.steps, target: metrics.stepsGoal, unit: "pasos", pct: Math.min(100, Math.round((metrics.steps / metrics.stepsGoal) * 100)), color: "#22C55E" },
-        { label: "Sueño", current: metrics.sleepHours, target: metrics.sleepGoalHours, unit: "h", pct: Math.min(100, Math.round((metrics.sleepHours / metrics.sleepGoalHours) * 100)), color: "#8B5CF6" },
-        { label: "Medicamentos", current: metrics.medsAdherence, target: 100, unit: "%", pct: metrics.medsAdherence, color: "#F59E0B" },
-      ]
-    : [];
+  const getHabit = (key: string) =>
+    habits.find((habit) => habit.key === key);
+
+  const waterHabit = getHabit("water");
+  const exerciseHabit = getHabit("exercise");
+  const sleepHabit = getHabit("sleep");
+  const meditationHabit = getHabit("meditation");
+
+  const waterCurrent = Number(
+    waterHabit?.value ?? metrics?.waterL ?? 0,
+  );
+  const waterTarget = Number(
+    waterHabit?.goal ?? metrics?.waterGoalL ?? 2,
+  );
+
+  const exerciseCurrent = Number(
+    exerciseHabit?.value ?? 0,
+  );
+  const exerciseTarget = Number(
+    exerciseHabit?.goal ?? 30,
+  );
+
+  const sleepCurrent = Number(
+    sleepHabit?.value ?? metrics?.sleepHours ?? 0,
+  );
+  const sleepTarget = Number(
+    sleepHabit?.goal ?? metrics?.sleepGoalHours ?? 8,
+  );
+
+  const meditationCurrent = Number(
+    meditationHabit?.value ?? 0,
+  );
+  const meditationTarget = Number(
+    meditationHabit?.goal ?? 10,
+  );
+
+  const stepsCurrent = Number(
+    metrics?.steps ?? 0,
+  );
+  const stepsTarget = Number(
+    metrics?.stepsGoal ?? 10000,
+  );
+
+  const medicationPct = Number(
+    metrics?.medsAdherence ?? 0,
+  );
+
+  const pct = (current: number, target: number) =>
+    target > 0
+      ? Math.min(100, Math.round((current / target) * 100))
+      : 0;
+
+  const dailyGoals = [
+    {
+      label: "Hidratación",
+      current: waterCurrent,
+      target: waterTarget,
+      unit: "L",
+      pct: pct(waterCurrent, waterTarget),
+      color: "#2563EB",
+    },
+    {
+      label: "Pasos",
+      current: stepsCurrent,
+      target: stepsTarget,
+      unit: "pasos",
+      pct: pct(stepsCurrent, stepsTarget),
+      color: "#22C55E",
+    },
+    {
+      label: "Sueño",
+      current: sleepCurrent,
+      target: sleepTarget,
+      unit: "h",
+      pct: pct(sleepCurrent, sleepTarget),
+      color: "#8B5CF6",
+    },
+    {
+      label: "Ejercicio",
+      current: exerciseCurrent,
+      target: exerciseTarget,
+      unit: "min",
+      pct: pct(exerciseCurrent, exerciseTarget),
+      color: "#14B8A6",
+    },
+    {
+      label: "Meditación",
+      current: meditationCurrent,
+      target: meditationTarget,
+      unit: "min",
+      pct: pct(meditationCurrent, meditationTarget),
+      color: "#F59E0B",
+    },
+    {
+      label: "Medicamentos",
+      current: medicationPct,
+      target: 100,
+      unit: "%",
+      pct: medicationPct,
+      color: "#EF4444",
+    },
+  ];
+
+  const achievements = [
+    {
+      ...baseAchievements[0],
+      label:
+        stats.diasActivo > 0
+          ? `Racha ${stats.diasActivo}d`
+          : "Racha",
+      unlocked: stats.diasActivo > 0,
+    },
+    {
+      ...baseAchievements[1],
+      label:
+        pct(waterCurrent, waterTarget) >= 100
+          ? "Hidratación"
+          : "Hidratación pendiente",
+      unlocked:
+        pct(waterCurrent, waterTarget) >= 100,
+    },
+    {
+      ...baseAchievements[2],
+      label:
+        pct(exerciseCurrent, exerciseTarget) >= 100
+          ? "Actividad completa"
+          : "Actividad pendiente",
+      unlocked:
+        pct(exerciseCurrent, exerciseTarget) >= 100,
+    },
+    {
+      ...baseAchievements[3],
+      label:
+        wellnessScore >= 80
+          ? "Bienestar excelente"
+          : wellnessScore >= 60
+            ? "Buen bienestar"
+            : "Mejorando bienestar",
+      unlocked: wellnessScore >= 60,
+    },
+    {
+      ...baseAchievements[4],
+      label:
+        pct(meditationCurrent, meditationTarget) >= 100
+          ? "Energía y calma"
+          : "Meditación pendiente",
+      unlocked:
+        pct(meditationCurrent, meditationTarget) >= 100,
+    },
+  ];
 
   const statsData = [
     { label: "Días activo", value: String(stats.diasActivo) },
@@ -302,7 +464,26 @@ export function ProfileScreen() {
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-xs font-medium" style={{ color: text }}>{g.label}</span>
                   <span className="text-xs" style={{ color: muted }}>
-                    <span className="font-semibold" style={{ color: g.color }}>{g.current}</span>/{g.target} {g.unit}
+                    <span className="font-semibold" style={{ color: g.color }}>
+                      {g.label === "Pasos"
+                        ? Math.round(g.current).toLocaleString("es-MX")
+                        : g.label === "Sueño"
+                          ? g.current.toFixed(1)
+                          : g.label === "Hidratación"
+                            ? g.current.toFixed(2)
+                            : g.label === "Medicamentos"
+                              ? Math.round(g.current)
+                              : Math.round(g.current)}
+                    </span>
+                    /
+                    {g.label === "Pasos"
+                      ? Math.round(g.target).toLocaleString("es-MX")
+                      : g.label === "Sueño"
+                        ? g.target.toFixed(0)
+                        : g.label === "Hidratación"
+                          ? g.target.toFixed(2)
+                          : Math.round(g.target)}{" "}
+                    {g.unit}
                   </span>
                 </div>
                 <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: dark ? "rgba(255,255,255,0.08)" : "#F1F5F9" }}>
@@ -328,7 +509,7 @@ export function ProfileScreen() {
               </div>
               <h3 className="text-sm font-bold" style={{ color: text }}>Logros</h3>
             </div>
-            <span className="text-[10px]" style={{ color: muted }}>5 desbloqueados</span>
+            <span className="text-[10px]" style={{ color: muted }}>{achievements.filter((a) => a.unlocked).length} desbloqueados</span>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
             {achievements.map((a) => {
@@ -339,10 +520,22 @@ export function ProfileScreen() {
                   whileTap={{ scale: 0.93 }}
                   className="flex-shrink-0 flex flex-col items-center gap-1.5"
                 >
-                  <div className="w-14 h-14 rounded-[18px] flex items-center justify-center border" style={{ backgroundColor: a.bg, borderColor: a.color + "30" }}>
-                    <Icon size={24} style={{ color: a.color }} />
+                  <div
+                    className="w-14 h-14 rounded-[18px] flex items-center justify-center border"
+                    style={{
+                      backgroundColor: a.unlocked ? a.bg : (dark ? "rgba(255,255,255,0.04)" : "#F8FAFC"),
+                      borderColor: a.unlocked ? a.color + "30" : cardBorder,
+                      opacity: a.unlocked ? 1 : 0.55,
+                    }}
+                  >
+                    <Icon size={24} style={{ color: a.unlocked ? a.color : muted }} />
                   </div>
-                  <span className="text-[9px] font-semibold text-center leading-tight" style={{ color: muted }}>{a.label}</span>
+                  <span
+                    className="text-[9px] font-semibold text-center leading-tight"
+                    style={{ color: a.unlocked ? muted : muted }}
+                  >
+                    {a.label}
+                  </span>
                 </motion.div>
               );
             })}
