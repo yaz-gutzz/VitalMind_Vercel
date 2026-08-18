@@ -8,6 +8,8 @@
 
 ## Levantar todo
 
+
+//gg
 Desde la raíz del proyecto:
 
 ```powershell
